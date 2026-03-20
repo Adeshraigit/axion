@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-[#050505] text-[#E5E5E5];
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtleBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 700ms ease-out forwards;
+}
+
+.animate-subtle-bounce {
+  animation: subtleBounce 2s ease-in-out infinite;
+}
