@@ -47,7 +47,10 @@ Set the following in `apps/api/.env`:
 
 Optional service keys:
 - `OPENAI_API_KEY`
+- `OPENAI_MODEL` (defaults to `gpt-4.1-mini`)
+- `OPENAI_BASE_URL` (set for OpenAI-compatible providers, e.g. Groq: `https://api.groq.com/openai/v1`)
 - `HINDSIGHT_API_KEY`
+- `HINDSIGHT_BANK_ID` (optional override if your existing Hindsight memories use a non-user-id bank, e.g. `adesh-profile`)
 - `ELEVENLABS_API_KEY`
 - `FIRECRAWL_API_KEY` (enables job-page scraping for expected-vs-missing skill analysis)
 - `FIRECRAWL_BASE_URL` (defaults to `https://api.firecrawl.dev/v2`)

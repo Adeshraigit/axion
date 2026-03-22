@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, Loader2, Mic, MicOff, Square, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 import { postChat } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
@@ -67,6 +69,7 @@ export function ChatPanel({ userId }: ChatPanelProps) {
     },
   ]);
   const endRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const loadingRef = useRef(false);
@@ -74,9 +77,23 @@ export function ChatPanel({ userId }: ChatPanelProps) {
   const voiceAgentEnabledRef = useRef(false);
   const stopRequestedRef = useRef(false);
 
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior,
+      });
+      return;
+    }
+    endRef.current?.scrollIntoView({ behavior });
+  }, []);
+
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+    const nextBehavior: ScrollBehavior = loading ? "smooth" : "auto";
+    scrollToBottom(nextBehavior);
+    const rafId = requestAnimationFrame(() => scrollToBottom(nextBehavior));
+    return () => cancelAnimationFrame(rafId);
+  }, [messages, loading, scrollToBottom]);
 
   useEffect(() => {
     loadingRef.current = loading;
@@ -131,7 +148,21 @@ export function ChatPanel({ userId }: ChatPanelProps) {
 
     recognition.onerror = (event) => {
       setIsListening(false);
-      setVoiceError(event.error ? `Voice input error: ${event.error}` : "Voice input failed");
+      const errorCode = event.error ?? "";
+
+      if (errorCode === "no-speech" || errorCode === "aborted") {
+        setVoiceError(null);
+        if (voiceAgentEnabledRef.current && !loadingRef.current && !speakingRef.current) {
+          setTimeout(() => {
+            try {
+              recognition.start();
+            } catch {}
+          }, 300);
+        }
+        return;
+      }
+
+      setVoiceError(errorCode ? `Voice input error: ${errorCode}` : "Voice input failed");
     };
 
     recognition.onresult = (event) => {
@@ -235,6 +266,16 @@ export function ChatPanel({ userId }: ChatPanelProps) {
       if (voiceAgentEnabledRef.current) {
         await playAssistantAudio(data.audio_base64);
       }
+    } catch {
+      setVoiceError("Failed to get mentor response. Check backend/API keys and try again.");
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-assistant-error`,
+          role: "assistant",
+          content: "I hit a backend issue while generating a response. Please try again.",
+        },
+      ]);
     } finally {
       setLoading(false);
       if (voiceAgentEnabledRef.current) {
@@ -272,7 +313,7 @@ export function ChatPanel({ userId }: ChatPanelProps) {
       </CardHeader>
 
       <CardContent className="flex h-[calc(100%-86px)] flex-col p-0">
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           {messages.map((item) => {
             const isUser = item.role === "user";
             return (
@@ -290,7 +331,39 @@ export function ChatPanel({ userId }: ChatPanelProps) {
                       : "rounded-tl-sm border border-[#1F1F1F] bg-[#101010] text-[#E5E5E5]"
                   }`}
                 >
-                  <p>{item.content}</p>
+                  {isUser ? (
+                    <p>{item.content}</p>
+                  ) : (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                        ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-5 last:mb-0">{children}</ul>,
+                        ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>,
+                        li: ({ children }) => <li className="text-[#E5E5E5]">{children}</li>,
+                        strong: ({ children }) => <strong className="font-semibold text-[#F5F5F5]">{children}</strong>,
+                        em: ({ children }) => <em className="italic">{children}</em>,
+                        code: ({ children }) => (
+                          <code className="rounded bg-[#1A1A1A] px-1 py-0.5 text-xs text-[#E5E5E5]">{children}</code>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="mb-2 overflow-x-auto rounded-lg border border-[#1F1F1F] bg-[#0B0B0C] p-3 text-xs last:mb-0">
+                            {children}
+                          </pre>
+                        ),
+                        hr: () => <hr className="my-3 border-[#1F1F1F]" />,
+                        table: ({ children }) => (
+                          <div className="mb-2 overflow-x-auto last:mb-0">
+                            <table className="w-full border-collapse text-xs">{children}</table>
+                          </div>
+                        ),
+                        th: ({ children }) => <th className="border border-[#2A2A2A] bg-[#141414] px-2 py-1 text-left">{children}</th>,
+                        td: ({ children }) => <td className="border border-[#2A2A2A] px-2 py-1 align-top">{children}</td>,
+                      }}
+                    >
+                      {item.content}
+                    </ReactMarkdown>
+                  )}
 
                   {!isUser && !!item.observations?.length && (
                     <div className="mt-3 flex flex-wrap gap-2">

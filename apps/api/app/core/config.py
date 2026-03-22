@@ -11,10 +11,12 @@ class Settings(BaseSettings):
     # LLM settings
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
+    openai_base_url: str = ""
 
     # Hindsight memory settings
     hindsight_api_key: str = ""
     hindsight_base_url: str = "https://api.hindsight.ai"
+    hindsight_bank_id: str = ""
 
     # Voice settings
     elevenlabs_api_key: str = ""

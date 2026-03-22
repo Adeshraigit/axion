@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, Briefcase, Sparkles, TrendingUp } from "lucide-react";
+import { Activity, Briefcase, Loader2, Sparkles } from "lucide-react";
 
-import { getDashboard } from "@/lib/api";
+import { getDashboard, refreshDashboardRecommendations } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type DashboardPanelProps = {
@@ -49,9 +50,10 @@ type DashboardData = {
 export function DashboardPanel({ userId }: DashboardPanelProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshingJobs, setIsRefreshingJobs] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadDashboard = () => {
     setIsLoading(true);
     setError(null);
     getDashboard(userId)
@@ -65,7 +67,24 @@ export function DashboardPanel({ userId }: DashboardPanelProps) {
       .finally(() => {
         setIsLoading(false);
       });
+  };
+
+  useEffect(() => {
+    loadDashboard();
   }, [userId]);
+
+  const onLoadDailyJobs = async () => {
+    setIsRefreshingJobs(true);
+    setError(null);
+    try {
+      const nextData: DashboardData = await refreshDashboardRecommendations(userId);
+      setData(nextData);
+    } catch {
+      setError("Unable to generate daily jobs right now. Please try again.");
+    } finally {
+      setIsRefreshingJobs(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -128,33 +147,18 @@ export function DashboardPanel({ userId }: DashboardPanelProps) {
             <MetricCard label="Rejected" value={data.applications_summary.rejected} />
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-5">
-            <Card className="xl:col-span-2">
+          <div className="grid gap-4">
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 text-[#F59E0B]" /> Skills
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {data.skills.map((skill: Skill) => (
-                  <div key={skill.name}>
-                    <div className="mb-1 flex items-center justify-between text-sm">
-                      <span>{skill.name}</span>
-                      <span className="text-[#A1A1AA]">Level {skill.level}</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-[#131313]">
-                      <div className="h-2 rounded-full bg-[#F59E0B]" style={{ width: `${Math.min(100, skill.level * 20)}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card className="xl:col-span-3">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Briefcase className="h-4 w-4 text-[#F59E0B]" /> Daily Job Suggestions (10)
-                </CardTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle className="flex items-center gap-2 text-sm">
+                    <Briefcase className="h-4 w-4 text-[#F59E0B]" /> Daily Job Suggestions (10)
+                  </CardTitle>
+                  <Button onClick={onLoadDailyJobs} variant="secondary" size="sm" disabled={isRefreshingJobs}>
+                    {isRefreshingJobs ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                    Load daily 10 jobs
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.daily_recommendations.length === 0 && (

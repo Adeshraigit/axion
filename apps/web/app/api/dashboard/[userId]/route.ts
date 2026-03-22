@@ -16,3 +16,18 @@ export async function GET(request: NextRequest, context: { params: Promise<{ use
   const data = await response.json();
   return NextResponse.json(data, { status: response.status });
 }
+
+export async function POST(request: NextRequest, context: { params: Promise<{ userId: string }> }) {
+  const { userId } = await context.params;
+  const authorization = request.headers.get("authorization");
+  const response = await fetch(`${BACKEND_URL}/api/v1/dashboard/${userId}/recommendations/refresh`, {
+    method: "POST",
+    headers: {
+      ...(authorization ? { Authorization: authorization } : {}),
+    },
+    cache: "no-store",
+  });
+
+  const data = await response.json();
+  return NextResponse.json(data, { status: response.status });
+}

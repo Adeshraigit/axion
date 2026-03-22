@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
 from app.core.config import get_settings
 
 
 SYSTEM_PROMPT = Path(__file__).parent / "prompts" / "system_prompt.txt"
+logger = logging.getLogger(__name__)
 
 
 class CareerMentorAgent:
@@ -18,7 +20,21 @@ class CareerMentorAgent:
             from agno.agent import Agent
             from agno.models.openai import OpenAIChat
 
-            model = OpenAIChat(id=self.settings.openai_model, api_key=self.settings.openai_api_key)
+            api_key = self.settings.openai_api_key.strip()
+            base_url = self.settings.openai_base_url.strip() or None
+
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY is missing")
+
+            if api_key.startswith("gsk_") and not base_url:
+                base_url = "https://api.groq.com/openai/v1"
+                logger.info("Detected Groq key prefix; using default OPENAI_BASE_URL=%s", base_url)
+
+            model = OpenAIChat(
+                id=self.settings.openai_model,
+                api_key=api_key,
+                base_url=base_url,
+            )
             agent = Agent(model=model, instructions=self.instructions)
             prompt = (
                 f"User ID: {user_id}\n"
@@ -29,7 +45,8 @@ class CareerMentorAgent:
             )
             run_output = agent.run(prompt)
             return str(getattr(run_output, "content", run_output))
-        except Exception:
+        except Exception as exc:
+            logger.warning("CareerMentorAgent fallback activated: %s", exc)
             memory_line = memory_context[0] if memory_context else "No prior memory yet."
             observation_line = observations[0] if observations else "No behavior observation yet."
             return (
